@@ -545,6 +545,42 @@
       border-radius: 4px;
       background: var(--status-ok-bg);
       color: var(--status-ok-fg);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .cursor-badge.next {
+      background: rgba(14, 165, 233, 0.14);
+      color: #0369a1;
+      border: 1px solid rgba(14, 165, 233, 0.28);
+    }
+
+    [data-theme="dark"] .cursor-badge.next {
+      background: rgba(14, 165, 233, 0.22);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .cursor-badge.last {
+      background: var(--surface-track);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    @keyframes badge-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .cursor-badge.active-pulse::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+      animation: badge-pulse 1.8s infinite ease-in-out;
     }
 
     .acct-email {
@@ -965,6 +1001,10 @@
       flex-direction: column;
     }
 
+    #import-modal .modal-card {
+      max-width: 840px;
+    }
+
     /* The body is the only scrollable region; header and actions stay put so the
        primary action is reachable on short viewports. The inset shadow signals
        that more content continues below the fold. */
@@ -1092,14 +1132,16 @@
     }
 
     .advanced-body {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 0 12px 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      padding: 6px 12px 14px;
     }
 
     #inp-acct-cookie {
-      min-height: 92px;
+      min-height: 160px;
+      font-size: 0.8125rem;
+      line-height: 1.45;
     }
 
     .modal-title {
@@ -1268,6 +1310,164 @@
         width: 100%;
       }
     }
+
+    /* DataTables Toolbar, Pagination & Sorting */
+    .dt-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .dt-toolbar-left,
+    .dt-toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .dt-search-wrap {
+      min-width: 240px;
+    }
+
+    .dt-search-input {
+      min-height: 32px;
+      padding: 5px 12px;
+      font-size: 0.8125rem;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .dt-search-input:focus {
+      outline: 2px solid var(--accent);
+      border-color: var(--accent);
+    }
+
+    .dt-length-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dt-select-sm {
+      min-height: 32px;
+      padding: 3px 8px;
+      font-size: 0.8125rem;
+      width: auto;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .dt-btn-sm {
+      min-height: 32px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+    }
+
+    .th-sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .th-sortable:hover {
+      background: var(--surface-hover);
+      color: var(--text-primary);
+    }
+
+    .sort-indicator {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      opacity: 0.45;
+      font-family: monospace;
+    }
+
+    .th-sortable[data-sort-dir="asc"] .sort-indicator,
+    .th-sortable[data-sort-dir="desc"] .sort-indicator {
+      opacity: 1;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .dt-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 16px;
+      background: var(--surface-subtle);
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .dt-pagination {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-page {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-primary);
+      min-height: 30px;
+      min-width: 30px;
+      padding: 3px 9px;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .btn-page:hover:not(:disabled) {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+    }
+
+    .btn-page:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .btn-page.active {
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg);
+      border-color: var(--btn-primary-bg);
+      font-weight: 600;
+    }
+
+    .dt-page-numbers {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dt-page-ellipsis {
+      padding: 0 4px;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -1369,18 +1569,53 @@
           <span>Reading account states from the local bridge daemon.</span>
         </div>
 
+        <div id="dt-toolbar" class="dt-toolbar" hidden>
+          <div class="dt-toolbar-left">
+            <div class="dt-search-wrap">
+              <input type="search" id="acct-search" class="input dt-search-input" placeholder="Search ID, email, status..." aria-label="Search accounts">
+            </div>
+            <div class="dt-length-wrap">
+              <label for="acct-page-size" class="dt-label helper">Show:</label>
+              <select id="acct-page-size" class="select dt-select-sm mono">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+          </div>
+          <div class="dt-toolbar-right">
+            <button type="button" id="btn-export-csv" class="btn btn-secondary dt-btn-sm" title="Export accounts as CSV">
+              <span>📥 Export CSV</span>
+            </button>
+            <button type="button" id="btn-export-json" class="btn btn-secondary dt-btn-sm" title="Export accounts as JSON">
+              <span>📥 Export JSON</span>
+            </button>
+          </div>
+        </div>
+
         <div id="accounts-table-wrap" class="table-wrap" hidden>
           <table class="acct-table">
             <thead>
               <tr>
-                <th scope="col">Account</th>
-                <th scope="col">Status</th>
-                <th scope="col" class="col-quota">Active Quota Window (5h / Weekly)</th>
+                <th scope="col" class="th-sortable" data-sort="id" title="Click to sort by Account ID">Account <span class="sort-indicator" id="sort-ind-id">↕</span></th>
+                <th scope="col" class="th-sortable" data-sort="status" title="Click to sort by Status">Status <span class="sort-indicator" id="sort-ind-status">↕</span></th>
+                <th scope="col" class="col-quota th-sortable" data-sort="quota" title="Click to sort by 5h Quota Remaining">Active Quota Window (5h / Weekly) <span class="sort-indicator" id="sort-ind-quota">↕</span></th>
                 <th scope="col" class="col-actions">Actions</th>
               </tr>
             </thead>
             <tbody id="accounts-tbody"></tbody>
           </table>
+        </div>
+
+        <div id="dt-footer" class="dt-footer" hidden>
+          <div class="dt-info helper mono" id="dt-info">Showing 0 to 0 of 0 accounts</div>
+          <div class="dt-pagination" id="dt-pagination" role="navigation" aria-label="Accounts table pagination">
+            <button type="button" class="btn-page" id="btn-page-prev" title="Previous page">‹ Prev</button>
+            <div class="dt-page-numbers" id="dt-page-numbers"></div>
+            <button type="button" class="btn-page" id="btn-page-next" title="Next page">Next ›</button>
+          </div>
         </div>
       </div>
     </section>
@@ -1627,6 +1862,16 @@
       const stateEl = document.getElementById('accounts-state');
       const tableWrap = document.getElementById('accounts-table-wrap');
       const tbodyEl = document.getElementById('accounts-tbody');
+      const dtToolbar = document.getElementById('dt-toolbar');
+      const dtFooter = document.getElementById('dt-footer');
+      const dtInfo = document.getElementById('dt-info');
+      const dtPageNumbers = document.getElementById('dt-page-numbers');
+      const btnPagePrev = document.getElementById('btn-page-prev');
+      const btnPageNext = document.getElementById('btn-page-next');
+      const inpSearch = document.getElementById('acct-search');
+      const selPageSize = document.getElementById('acct-page-size');
+      const btnExportCSV = document.getElementById('btn-export-csv');
+      const btnExportJSON = document.getElementById('btn-export-json');
 
       const importModal = document.getElementById('import-modal');
       const authModal = document.getElementById('auth-modal');
@@ -1634,8 +1879,14 @@
       const inpAdminToken = document.getElementById('inp-admin-token');
 
       let currentRotateCursor = '';
+      let currentStrategy = 'rotate';
       let allAccountsCache = [];
       let currentFilter = 'all';
+      let currentSearchQuery = '';
+      let currentPage = 1;
+      let pageSize = 10;
+      let currentSortCol = null;
+      let currentSortDir = 'asc';
 
       function initTheme() {
         const saved = localStorage.getItem(THEME_KEY);
@@ -1671,12 +1922,73 @@
       document.querySelectorAll('.filter-pill').forEach(function (pill) {
         pill.addEventListener('click', function () {
           currentFilter = pill.getAttribute('data-filter') || 'all';
+          currentPage = 1;
           document.querySelectorAll('.filter-pill').forEach(function (p) {
             p.setAttribute('aria-pressed', p === pill ? 'true' : 'false');
           });
           renderAccounts(allAccountsCache);
         });
       });
+
+      if (inpSearch) {
+        inpSearch.addEventListener('input', function () {
+          currentSearchQuery = inpSearch.value.trim().toLowerCase();
+          currentPage = 1;
+          renderAccounts(allAccountsCache);
+        });
+      }
+
+      if (selPageSize) {
+        selPageSize.addEventListener('change', function () {
+          const val = selPageSize.value;
+          pageSize = val === 'all' ? 'all' : (parseInt(val, 10) || 10);
+          currentPage = 1;
+          renderAccounts(allAccountsCache);
+        });
+      }
+
+      if (btnPagePrev) {
+        btnPagePrev.addEventListener('click', function () {
+          if (currentPage > 1) {
+            currentPage--;
+            renderAccounts(allAccountsCache);
+          }
+        });
+      }
+
+      if (btnPageNext) {
+        btnPageNext.addEventListener('click', function () {
+          currentPage++;
+          renderAccounts(allAccountsCache);
+        });
+      }
+
+      document.querySelectorAll('.th-sortable').forEach(function (th) {
+        th.addEventListener('click', function () {
+          const col = th.getAttribute('data-sort');
+          if (!col) return;
+          if (currentSortCol === col) {
+            currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            currentSortCol = col;
+            currentSortDir = 'asc';
+          }
+          currentPage = 1;
+          renderAccounts(allAccountsCache);
+        });
+      });
+
+      if (btnExportCSV) {
+        btnExportCSV.addEventListener('click', function () {
+          exportAccountsCSV(allAccountsCache);
+        });
+      }
+
+      if (btnExportJSON) {
+        btnExportJSON.addEventListener('click', function () {
+          exportAccountsJSON(allAccountsCache);
+        });
+      }
 
       function showBanner(kind, message) {
         bannerEl.className = 'status-banner ' + kind;
@@ -1953,13 +2265,225 @@
         document.getElementById('cnt-issue').textContent = String(issCnt);
       }
 
-      function filterAccounts(accounts) {
-        if (currentFilter === 'all') return accounts;
-        return accounts.filter(function (a) {
-          if (currentFilter === 'ok') return a.status === 'ok';
-          if (currentFilter === 'exhausted') return a.status === 'exhausted';
-          return a.status !== 'ok' && a.status !== 'exhausted';
+      function get5hQuotaRemaining(acct) {
+        const pair = extractTwoQuotaBars(acct.quota);
+        if (pair && pair.q5h && pair.q5h.remaining != null) {
+          return Number(pair.q5h.remaining);
+        }
+        return -1;
+      }
+
+      function sortAccounts(list) {
+        if (!currentSortCol) return list;
+        const copy = list.slice();
+        copy.sort(function (a, b) {
+          let cmp = 0;
+          if (currentSortCol === 'id') {
+            cmp = String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true, sensitivity: 'base' });
+          } else if (currentSortCol === 'status') {
+            cmp = String(a.status || '').localeCompare(String(b.status || ''));
+          } else if (currentSortCol === 'quota') {
+            cmp = get5hQuotaRemaining(a) - get5hQuotaRemaining(b);
+          }
+          return currentSortDir === 'desc' ? -cmp : cmp;
         });
+        return copy;
+      }
+
+      function updateSortHeaders() {
+        document.querySelectorAll('.th-sortable').forEach(function (th) {
+          const col = th.getAttribute('data-sort');
+          const ind = th.querySelector('.sort-indicator');
+          if (col === currentSortCol) {
+            th.setAttribute('data-sort-dir', currentSortDir);
+            if (ind) ind.textContent = currentSortDir === 'asc' ? ' ▲' : ' ▼';
+          } else {
+            th.removeAttribute('data-sort-dir');
+            if (ind) ind.textContent = ' ↕';
+          }
+        });
+      }
+
+      function filterAccounts(accounts) {
+        let res = accounts;
+        if (currentFilter !== 'all') {
+          res = res.filter(function (a) {
+            if (currentFilter === 'ok') return a.status === 'ok';
+            if (currentFilter === 'exhausted') return a.status === 'exhausted';
+            return a.status !== 'ok' && a.status !== 'exhausted';
+          });
+        }
+        if (currentSearchQuery) {
+          const q = currentSearchQuery.toLowerCase();
+          res = res.filter(function (a) {
+            const idMatch = String(a.id || '').toLowerCase().includes(q);
+            const emailMatch = String(a.email || '').toLowerCase().includes(q);
+            const statusMatch = String(a.status || '').toLowerCase().includes(q);
+            const reasonMatch = String(a.statusReason || '').toLowerCase().includes(q);
+            const groupMatch = String(a.accountGroup || '').toLowerCase().includes(q);
+            return idMatch || emailMatch || statusMatch || reasonMatch || groupMatch;
+          });
+        }
+        return res;
+      }
+
+      function renderPaginationControls(totalItems) {
+        dtPageNumbers.innerHTML = '';
+        if (pageSize === 'all' || totalItems <= pageSize) {
+          btnPagePrev.disabled = true;
+          btnPageNext.disabled = true;
+          dtInfo.textContent = 'Showing all ' + totalItems + ' account' + (totalItems === 1 ? '' : 's') +
+            (allAccountsCache.length > totalItems ? ' (filtered from ' + allAccountsCache.length + ' total)' : '');
+          return;
+        }
+
+        const totalPages = Math.ceil(totalItems / pageSize);
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIdx = (currentPage - 1) * pageSize + 1;
+        const endIdx = Math.min(currentPage * pageSize, totalItems);
+        dtInfo.textContent = 'Showing ' + startIdx + ' to ' + endIdx + ' of ' + totalItems + ' accounts' +
+          (allAccountsCache.length > totalItems ? ' (filtered from ' + allAccountsCache.length + ' total)' : '');
+
+        btnPagePrev.disabled = (currentPage === 1);
+        btnPageNext.disabled = (currentPage === totalPages);
+
+        function createPageBtn(p, label) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn-page' + (p === currentPage ? ' active' : '');
+          b.textContent = label || String(p);
+          b.setAttribute('aria-label', 'Go to page ' + p);
+          if (p === currentPage) {
+            b.setAttribute('aria-current', 'page');
+          }
+          b.addEventListener('click', function () {
+            currentPage = p;
+            renderAccounts(allAccountsCache);
+          });
+          return b;
+        }
+
+        function createEllipsis() {
+          const span = document.createElement('span');
+          span.className = 'dt-page-ellipsis';
+          span.textContent = '…';
+          return span;
+        }
+
+        if (totalPages <= 7) {
+          for (let p = 1; p <= totalPages; p++) {
+            dtPageNumbers.appendChild(createPageBtn(p));
+          }
+        } else {
+          dtPageNumbers.appendChild(createPageBtn(1));
+          if (currentPage > 3) {
+            dtPageNumbers.appendChild(createEllipsis());
+          }
+          const start = Math.max(2, currentPage - 1);
+          const end = Math.min(totalPages - 1, currentPage + 1);
+          for (let p = start; p <= end; p++) {
+            dtPageNumbers.appendChild(createPageBtn(p));
+          }
+          if (currentPage < totalPages - 2) {
+            dtPageNumbers.appendChild(createEllipsis());
+          }
+          dtPageNumbers.appendChild(createPageBtn(totalPages));
+        }
+      }
+
+      function downloadFile(content, fileName, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 300);
+      }
+
+      function exportAccountsCSV(accounts) {
+        if (!accounts || accounts.length === 0) {
+          showBanner('warn', 'No accounts to export.');
+          return;
+        }
+        const headers = [
+          'Account ID',
+          'Email',
+          'Status',
+          'Status Reason',
+          'Fails',
+          '5h Remaining',
+          '5h Total',
+          '5h Reset At',
+          'Weekly Remaining',
+          'Weekly Total',
+          'Weekly Reset At',
+          'Last Used At',
+          'Account Group',
+          'Proxy Configured'
+        ];
+
+        function escapeCSV(val) {
+          if (val == null) return '""';
+          const s = String(val).replace(/"/g, '""');
+          return '"' + s + '"';
+        }
+
+        const rows = accounts.map(function (a) {
+          const pair = extractTwoQuotaBars(a.quota);
+          return [
+            escapeCSV(a.id),
+            escapeCSV(a.email || ''),
+            escapeCSV(a.status || ''),
+            escapeCSV(a.statusReason || ''),
+            escapeCSV(a.fails != null ? a.fails : 0),
+            escapeCSV(pair.q5h ? pair.q5h.remaining : ''),
+            escapeCSV(pair.q5h ? pair.q5h.total : ''),
+            escapeCSV(pair.q5h ? (pair.q5h.resetAt || '') : ''),
+            escapeCSV(pair.qWeekly ? pair.qWeekly.remaining : ''),
+            escapeCSV(pair.qWeekly ? pair.qWeekly.total : ''),
+            escapeCSV(pair.qWeekly ? (pair.qWeekly.resetAt || '') : ''),
+            escapeCSV(a.lastUsedAt || ''),
+            escapeCSV(a.accountGroup || ''),
+            escapeCSV(a.proxyConfigured ? 'true' : 'false')
+          ].join(',');
+        });
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+        downloadFile(csvContent, 'gsb-accounts-' + new Date().toISOString().slice(0, 10) + '.csv', 'text/csv;charset=utf-8;');
+        showBanner('ok', 'Exported ' + accounts.length + ' account(s) to CSV.');
+      }
+
+      function exportAccountsJSON(accounts) {
+        if (!accounts || accounts.length === 0) {
+          showBanner('warn', 'No accounts to export.');
+          return;
+        }
+        const clean = accounts.map(function (a) {
+          const pair = extractTwoQuotaBars(a.quota);
+          return {
+            id: a.id,
+            email: a.email || '',
+            status: a.status || '',
+            statusReason: a.statusReason || '',
+            fails: a.fails != null ? a.fails : 0,
+            activeStreams: a.activeStreams || 0,
+            lastUsedAt: a.lastUsedAt || '',
+            quota: {
+              fiveHourly: pair.q5h ? { remaining: pair.q5h.remaining, total: pair.q5h.total, resetAt: pair.q5h.resetAt || '' } : null,
+              weekly: pair.qWeekly ? { remaining: pair.qWeekly.remaining, total: pair.qWeekly.total, resetAt: pair.qWeekly.resetAt || '' } : null,
+            },
+            accountGroup: a.accountGroup || '',
+            proxyConfigured: Boolean(a.proxyConfigured)
+          };
+        });
+        const jsonContent = JSON.stringify(clean, null, 2);
+        downloadFile(jsonContent, 'gsb-accounts-' + new Date().toISOString().slice(0, 10) + '.json', 'application/json;charset=utf-8;');
+        showBanner('ok', 'Exported ' + accounts.length + ' account(s) to JSON.');
       }
 
       function renderAccounts(accounts) {
@@ -1967,7 +2491,9 @@
         updateFilterCounts(accounts);
         tbodyEl.textContent = '';
         if (!Array.isArray(accounts) || accounts.length === 0) {
+          if (dtToolbar) dtToolbar.hidden = true;
           tableWrap.hidden = true;
+          if (dtFooter) dtFooter.hidden = true;
           stateEl.hidden = false;
           stateEl.innerHTML = '';
           const title = document.createElement('strong');
@@ -1989,14 +2515,19 @@
         }
 
         const filtered = filterAccounts(accounts);
+        if (dtToolbar) dtToolbar.hidden = false;
+
         if (filtered.length === 0) {
           tableWrap.hidden = true;
+          if (dtFooter) dtFooter.hidden = true;
           stateEl.hidden = false;
           stateEl.innerHTML = '';
           const title = document.createElement('strong');
-          title.textContent = 'No accounts match the selected filter (' + currentFilter + ').';
+          title.textContent = 'No accounts match the current filter or search query.';
           const sub = document.createElement('span');
-          sub.textContent = 'Select "All" above to view all ' + accounts.length + ' loaded accounts.';
+          sub.textContent = currentSearchQuery 
+            ? 'Try clearing the search box or selecting "All" above to view accounts.'
+            : 'Select "All" above to view all ' + accounts.length + ' loaded accounts.';
           stateEl.appendChild(title);
           stateEl.appendChild(sub);
           return;
@@ -2004,8 +2535,40 @@
 
         stateEl.hidden = true;
         tableWrap.hidden = false;
+        if (dtFooter) dtFooter.hidden = false;
 
-        filtered.forEach(function (acct, idx) {
+        const sorted = sortAccounts(filtered);
+        updateSortHeaders();
+        renderPaginationControls(sorted.length);
+
+        const paged = (pageSize === 'all')
+          ? sorted
+          : sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+        let nextLruId = '';
+        if (currentStrategy === 'lru') {
+          const candidates = accounts.filter(function (a) {
+            return !a.quarantined && !a.disabled && (a.status === 'ok' || a.status === 'degraded');
+          });
+          candidates.sort(function (a, b) {
+            const aBusy = (a.activeRequests || 0) > 0 ? 1 : 0;
+            const bBusy = (b.activeRequests || 0) > 0 ? 1 : 0;
+            if (aBusy !== bBusy) return aBusy - bBusy;
+
+            const aFails = a.consecutiveFails || 0;
+            const bFails = b.consecutiveFails || 0;
+            if (aFails !== bFails) return aFails - bFails;
+
+            const aTime = a.lastUsedAt ? Date.parse(a.lastUsedAt) : 0;
+            const bTime = b.lastUsedAt ? Date.parse(b.lastUsedAt) : 0;
+            return aTime - bTime;
+          });
+          if (candidates.length > 0) {
+            nextLruId = candidates[0].id;
+          }
+        }
+
+        paged.forEach(function (acct, idx) {
           const tr = document.createElement('tr');
 
           // 1. Account
@@ -2014,14 +2577,37 @@
           const idLine = document.createElement('div');
           idLine.className = 'acct-id-line mono';
           const idSpan = document.createElement('span');
-          idSpan.textContent = (idx + 1) + '. ' + acct.id;
+          const rowNum = (pageSize === 'all') ? (idx + 1) : ((currentPage - 1) * pageSize + idx + 1);
+          idSpan.textContent = rowNum + '. ' + acct.id;
           idLine.appendChild(idSpan);
-          if (currentRotateCursor && currentRotateCursor === acct.id) {
-            const cur = document.createElement('span');
-            cur.className = 'cursor-badge';
-            cur.textContent = 'Current Turn';
-            cur.title = 'Sticky rotation cursor: pool traffic currently routes to this account until its 5h quota window is exhausted, then rotates to the next Ready account.';
-            idLine.appendChild(cur);
+
+          if (currentStrategy === 'lru') {
+            if (acct.id === currentRotateCursor) {
+              const cur = document.createElement('span');
+              const isBusy = (acct.activeRequests || 0) > 0;
+              cur.className = 'cursor-badge' + (isBusy ? ' active-pulse' : '');
+              cur.textContent = isBusy ? 'Current Turn (Active)' : 'Current Turn';
+              cur.title = isBusy ? 'Currently active: processing pool request.' : 'Current turn: most recently routed account under LRU strategy.';
+              idLine.appendChild(cur);
+            }
+            if (nextLruId && acct.id === nextLruId && nextLruId !== currentRotateCursor) {
+              const nxt = document.createElement('span');
+              nxt.className = 'cursor-badge next';
+              nxt.textContent = 'Next Turn';
+              nxt.title = 'Next in line: oldest used ready account under LRU strategy.';
+              idLine.appendChild(nxt);
+            }
+          } else {
+            if (currentRotateCursor && currentRotateCursor === acct.id) {
+              const cur = document.createElement('span');
+              const isBusy = (acct.activeRequests || 0) > 0;
+              cur.className = 'cursor-badge' + (isBusy ? ' active-pulse' : '');
+              cur.textContent = 'Current Turn';
+              cur.title = currentStrategy === 'fill-first'
+                ? 'Current turn: highest priority ready account under fill-first strategy.'
+                : 'Sticky rotation cursor: pool traffic currently routes to this account until its quota window is exhausted, then rotates to the next Ready account.';
+              idLine.appendChild(cur);
+            }
           }
           tdId.appendChild(idLine);
 
@@ -2084,7 +2670,8 @@
           btnUp.textContent = '↑';
           btnUp.title = 'Move account higher in priority order';
           btnUp.setAttribute('aria-label', 'Move ' + acct.id + ' up');
-          btnUp.disabled = idx === 0;
+          const fullIdx = allAccountsCache.findIndex(function (a) { return a.id === acct.id; });
+          btnUp.disabled = fullIdx <= 0;
           btnUp.addEventListener('click', function () {
             moveAccount(acct.id, 'up', btnUp);
           });
@@ -2096,7 +2683,7 @@
           btnDown.textContent = '↓';
           btnDown.title = 'Move account lower in priority order';
           btnDown.setAttribute('aria-label', 'Move ' + acct.id + ' down');
-          btnDown.disabled = idx === filtered.length - 1;
+          btnDown.disabled = fullIdx === -1 || fullIdx >= allAccountsCache.length - 1;
           btnDown.addEventListener('click', function () {
             moveAccount(acct.id, 'down', btnDown);
           });
@@ -2150,6 +2737,8 @@
 
       function populateConfigForm(adm) {
         currentRotateCursor = adm.rotateCursor || '';
+        const cfg = adm.config || {};
+        currentStrategy = cfg.accountStrategy || 'rotate';
         hdrMeta.textContent = 'v' + (adm.version || '0.3.0') + ' · ' + adm.host + ':' + adm.port + ' · up ' + formatDuration(adm.uptimeSec);
         document.getElementById('lbl-env-file').textContent = adm.envFile || '$BRIDGE_HOME/config.env';
         document.getElementById('conn-base-url').textContent = window.location.origin + '/v1';
@@ -2157,7 +2746,6 @@
         document.getElementById('conn-mcp-url').textContent = window.location.origin + '/mcp';
         document.getElementById('conn-mcp-key').textContent = adm.poolKey || 'gsb-pool';
         btnAuthModal.hidden = (adm.authMode === 'local_public');
-        const cfg = adm.config || {};
         const metrics = adm.metrics || {};
         document.getElementById('stat-strategy').textContent = cfg.accountStrategy || 'rotate';
         document.getElementById('stat-cursor').textContent = currentRotateCursor || 'auto';

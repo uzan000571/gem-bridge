@@ -89,6 +89,20 @@ func (s *Server) HandleChat(ctx context.Context, w http.ResponseWriter, body map
 
 	accts := prep.accts
 	account := prep.account
+	if account != nil {
+		account.mu.Lock()
+		account.activeStreams++
+		account.mu.Unlock()
+		defer func() {
+			if account != nil {
+				account.mu.Lock()
+				if account.activeStreams > 0 {
+					account.activeStreams--
+				}
+				account.mu.Unlock()
+			}
+		}()
+	}
 	model := prep.model
 	mid := prep.mid
 	requested := prep.requested
@@ -145,6 +159,16 @@ func (s *Server) HandleChat(ctx context.Context, w http.ResponseWriter, body map
 	assignAccount := func(next *AccountState) {
 		if next != nil && next != account {
 			accountSwitches.Add(1)
+			if account != nil {
+				account.mu.Lock()
+				if account.activeStreams > 0 {
+					account.activeStreams--
+				}
+				account.mu.Unlock()
+			}
+			next.mu.Lock()
+			next.activeStreams++
+			next.mu.Unlock()
 		}
 		account = next
 	}
@@ -394,9 +418,6 @@ func (s *Server) HandleChat(ctx context.Context, w http.ResponseWriter, body map
 			streamErr = uploadErr
 		} else {
 			upstreamCalls++
-			account.mu.Lock()
-			account.activeStreams++
-			account.mu.Unlock()
 			upstream, streamErr = c.StreamGenerateLive(ctx, curPrompt, opts, func(update *gemini.LineParseResult) error {
 				attemptStateMu.Lock()
 				if update.MediaToolActive {
@@ -541,11 +562,6 @@ func (s *Server) HandleChat(ctx context.Context, w http.ResponseWriter, body map
 				}
 				return nil
 			})
-			account.mu.Lock()
-			if account.activeStreams > 0 {
-				account.activeStreams--
-			}
-			account.mu.Unlock()
 		}
 		if upstream != nil && upstream.Status > 0 {
 			lastUpstreamStatus = upstream.Status
@@ -623,7 +639,9 @@ func (s *Server) HandleChat(ctx context.Context, w http.ResponseWriter, body map
 					errCode == "upstream_stalled" ||
 					errCode == "upstream_timeout" ||
 					errCode == "model_identity_unknown" ||
-					errCode == "model_identity_conflict"))) && !payloadCommitted()
+					errCode == "model_identity_conflict" ||
+					errCode == "upstream_error" ||
+					errCode == "upstream_http_error"))) && !payloadCommitted()
 			canRetryMore := attempt+1 < maxAttempts && upstreamCalls < maxUpstream &&
 				(retryDeadline.IsZero() || time.Now().Before(retryDeadline)) &&
 				(!responseCommitted() || inStreamRetryable) && ctx.Err() == nil &&
@@ -738,20 +756,40 @@ func (s *Server) HandleChat(ctx context.Context, w http.ResponseWriter, body map
 				}
 				if errCode == "upstream_transport_error" ||
 					errCode == "upstream_error" ||
+					errCode == "upstream_http_error" ||
 					errCode == "incomplete_upstream_response" ||
 					errCode == "tool_call_error" {
 					lastRetryReason = errCode
-					if errCode != "tool_call_error" {
-						freshSocketNext = true
-						rebootstrapNext = true
+					switched := false
+					if scope.AccountID == "" && errCode != "tool_call_error" {
+						go func(client UpstreamClient) {
+							_, _ = client.RotateCookies(context.Background())
+						}(c)
+						if nextAcct, nextModel := s.pickFallbackAccount(accts, triedAccounts, originGroup, requested, hasher); nextAcct != nil && nextModel != nil {
+							triedAccounts[nextAcct.ID] = true
+							assignAccount(nextAcct)
+							model = nextModel
+							opts.Model = nextModel
+							opts.Metadata = nil
+							opts.Files = nil
+							curPrompt = fullPrompt
+							attachmentParts = fullAttachmentParts
+							switched = true
+						}
 					}
-					opts.Metadata = nil
-					opts.Files = nil
-					curPrompt = fullPrompt
-					if errCode == "tool_call_error" {
-						curPrompt = appendToolErrorCorrection(fullPrompt, runCheck.Error())
+					if !switched {
+						if errCode != "tool_call_error" {
+							freshSocketNext = true
+							rebootstrapNext = true
+						}
+						opts.Metadata = nil
+						opts.Files = nil
+						curPrompt = fullPrompt
+						if errCode == "tool_call_error" {
+							curPrompt = appendToolErrorCorrection(fullPrompt, runCheck.Error())
+						}
+						attachmentParts = fullAttachmentParts
 					}
-					attachmentParts = fullAttachmentParts
 					continue
 				}
 				if errCode == "upstream_error_reply" {

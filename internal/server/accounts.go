@@ -1290,11 +1290,25 @@ func (s *Server) resolveRotateAccount(accts []*AccountState, requested string, h
 	}
 
 	// Sticky: the cursor account keeps serving until it cannot.
-	for i := 0; i < len(accts); i++ {
-		a := at(i)
-		if _, ok := s.accountReady(a, requested); ok {
-			s.setRotateCursor(a.ID)
-			return a
+	// Pass 0 prefers an account that is not currently busy executing a stream,
+	// allowing concurrent requests (such as multi-worker clients) to immediately
+	// use other idle accounts in parallel without blocking each other.
+	// Pass 1 falls back to any ready account if all available accounts are busy.
+	for pass := 0; pass < 2; pass++ {
+		for i := 0; i < len(accts); i++ {
+			a := at(i)
+			if _, ok := s.accountReady(a, requested); ok {
+				if pass == 0 {
+					a.mu.RLock()
+					streams := a.activeStreams
+					a.mu.RUnlock()
+					if streams > 0 || s.isAccountBusy(a.ID) {
+						continue
+					}
+				}
+				s.setRotateCursor(a.ID)
+				return a
+			}
 		}
 	}
 
@@ -1502,6 +1516,9 @@ func (s *Server) resolveChatAccount(accts []*AccountState, scope AuthScope, requ
 			bestHasCache = aHasCache
 			bestQuotaOK = aQuotaOK
 		}
+	}
+	if best != nil {
+		s.setRotateCursor(best.ID)
 	}
 	return best
 }

@@ -1933,6 +1933,35 @@ func TestRotateSkipsCoolingAccount(t *testing.T) {
 	}
 }
 
+func TestRotateDistributesConcurrentWorkers(t *testing.T) {
+	srv := rotateServer(t)
+	scope := AuthScope{OK: true, Admin: true}
+
+	// Worker 1 hits: picks acctA, activeStreams becomes 1
+	acct1 := srv.resolveChatAccount(srv.Accounts(), scope, testModel.ModelName, nil)
+	if acct1 == nil || acct1.ID != "acctA" {
+		t.Fatalf("worker 1: expected acctA, got %+v", acct1)
+	}
+	acct1.mu.Lock()
+	acct1.activeStreams = 1
+	acct1.mu.Unlock()
+
+	// Worker 2 hits concurrently while acctA is busy: should pick acctB immediately
+	acct2 := srv.resolveChatAccount(srv.Accounts(), scope, testModel.ModelName, nil)
+	if acct2 == nil || acct2.ID != "acctB" {
+		t.Fatalf("worker 2: expected acctB while acctA is busy, got %+v", acct2)
+	}
+	acct2.mu.Lock()
+	acct2.activeStreams = 1
+	acct2.mu.Unlock()
+
+	// Worker 3 hits concurrently while acctA & acctB are busy: should pick acctC immediately
+	acct3 := srv.resolveChatAccount(srv.Accounts(), scope, testModel.ModelName, nil)
+	if acct3 == nil || acct3.ID != "acctC" {
+		t.Fatalf("worker 3: expected acctC while acctA & B are busy, got %+v", acct3)
+	}
+}
+
 func TestRotateFallbackAdvancesAndWraps(t *testing.T) {
 	srv := rotateServer(t)
 	if got := srv.resolveChatAccount(srv.Accounts(), AuthScope{OK: true, Admin: true}, testModel.ModelName, nil); got.ID != "acctA" {

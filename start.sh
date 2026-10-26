@@ -5,6 +5,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
 DIR="${BRIDGE_HOME:-$HOME/.gemini-stealth-bridge}"
 ACCOUNTS_DIR="$DIR/accounts"
 mkdir -p "$ACCOUNTS_DIR"
