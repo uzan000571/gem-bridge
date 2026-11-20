@@ -557,3 +557,33 @@ func TestFindChromeCookieDB_PrefersSignedInProfile(t *testing.T) {
 		t.Fatalf("FindChromeCookieDB auto-detect = %q, want signed-in Arc profile %q", got, arcDB)
 	}
 }
+
+func TestSelectBestDomainCookies_OSID(t *testing.T) {
+	jsonPayload := `[
+		{"name": "SAPISID", "value": "sapisid_val", "domain": ".google.com"},
+		{"name": "__Secure-1PSID", "value": "psid_val", "domain": ".google.com"},
+		{"name": "__Secure-1PSIDTS", "value": "psidts_val", "domain": ".google.com"},
+		{"name": "OSID", "value": "osid_wrong", "domain": ".google.com"},
+		{"name": "OSID", "value": "osid_gemini_val", "domain": "gemini.google.com"},
+		{"name": "__Secure-OSID", "value": "sec_osid_val", "domain": "gemini.google.com"},
+		{"name": "OTHER", "value": "ignore", "domain": "gemini.google.com"}
+	]`
+
+	hdr, _, err := ParseImportPayload(jsonPayload)
+	if err != nil {
+		t.Fatalf("ParseImportPayload failed: %v", err)
+	}
+
+	if !strings.Contains(hdr, "OSID=osid_gemini_val") {
+		t.Fatalf("expected header to contain OSID=osid_gemini_val, got: %s", hdr)
+	}
+	if !strings.Contains(hdr, "__Secure-OSID=sec_osid_val") {
+		t.Fatalf("expected header to contain __Secure-OSID=sec_osid_val, got: %s", hdr)
+	}
+	if strings.Contains(hdr, "osid_wrong") {
+		t.Fatalf("header should not have selected OSID from .google.com, got: %s", hdr)
+	}
+	if strings.Contains(hdr, "OTHER") {
+		t.Fatalf("header should not contain non-essential cookie, got: %s", hdr)
+	}
+}

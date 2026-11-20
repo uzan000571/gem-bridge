@@ -191,6 +191,7 @@ func (s *Server) LoadCredentials() int {
 			s.registerAccountTokensLocked(raw.ID, targetID)
 		}
 	}
+	s.applyPersistedAccountStatsLocked()
 	s.mu.Unlock()
 	return len(deduped)
 }
@@ -339,7 +340,15 @@ func (s *Server) RefreshAccount(ctx context.Context, a *AccountState, force bool
 		}
 		a.mu.Lock()
 		a.ModelsError = err
+		isAuthFail := looksLikeAuthFailure(err.Error())
+		if isAuthFail {
+			a.totalRequests = 0
+			a.todayRequests = 0
+		}
 		a.mu.Unlock()
+		if isAuthFail {
+			s.saveAccountStatsToDisk()
+		}
 		return a
 	}
 
@@ -390,6 +399,9 @@ func (s *Server) allModels() []gemini.ModelInfo {
 }
 
 func resolveModelOnAccount(a *AccountState, wanted string) *gemini.ModelInfo {
+	if a == nil {
+		return nil
+	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	w := strings.TrimSpace(wanted)
@@ -405,6 +417,19 @@ func resolveModelOnAccount(a *AccountState, wanted string) *gemini.ModelInfo {
 			found := m
 			return &found
 		}
+	}
+	// Fallback for free accounts: when a free account (or an account offering gemini-auto)
+	// does not explicitly list the requested model, push to its available auto model
+	// (gemini-auto) so that free accounts are included in rotation.
+	for _, m := range a.Models {
+		if m.ModelID == "auto" || m.ModelName == "gemini-auto" {
+			found := m
+			return &found
+		}
+	}
+	if a.Capacity == 1 && len(a.Models) > 0 {
+		m := a.Models[0]
+		return &m
 	}
 	return nil
 }
@@ -465,6 +490,13 @@ func (s *Server) checkAccountRateLimit(a *AccountState) error {
 		a.peakRPM = len(a.reqTimestamps)
 	}
 	a.totalRequests++
+	todayStr := now.Format("2006-01-02")
+	if a.statsDate != todayStr {
+		a.statsDate = todayStr
+		a.todayRequests = 0
+	}
+	a.todayRequests++
+	s.saveAccountStatsToDisk()
 	return nil
 }
 
@@ -747,6 +779,9 @@ func modelFamilyTokens(modelName string) []string {
 	var family []string
 	if strings.Contains(name, "argon") {
 		family = append(family, "argon", "pro")
+	}
+	if strings.Contains(name, "auto") {
+		family = append(family, "flash", "auto")
 	}
 	for _, tok := range []string{"pro", "flash", "thinking"} {
 		if strings.Contains(name, tok) {
@@ -1137,7 +1172,15 @@ func (s *Server) markAccountFailure(a *AccountState, msg string) {
 	a.Fails++
 	a.LastFail = s.now()
 	a.LastError = msg
+	isAuthFail := looksLikeAuthFailure(msg)
+	if isAuthFail {
+		a.totalRequests = 0
+		a.todayRequests = 0
+	}
 	a.mu.Unlock()
+	if isAuthFail {
+		s.saveAccountStatsToDisk()
+	}
 }
 
 // fillFirstFailCooldown temporarily demotes an account that just failed so a

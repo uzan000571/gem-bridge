@@ -51,7 +51,10 @@ func mcpTestServer(t *testing.T, client *mockUpstream) *Server {
 	cfg.HomeDir = t.TempDir()
 	cfg.AccountTokens = map[string]string{"audit": "acct"}
 	srv := New(cfg)
-	t.Cleanup(func() { srv.FlushSessionCacheNow() })
+	t.Cleanup(func() {
+		srv.FlushSessionCacheNow()
+		srv.FlushAccountStatsNow()
+	})
 	acct := &AccountState{
 		ID:       "acct",
 		Email:    "acct@example.com",

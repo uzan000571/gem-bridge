@@ -78,6 +78,7 @@ func (s *Server) loadSessionCacheFromDisk() {
 func (s *Server) FlushSessionCacheNow() {
 	s.cacheFlushWG.Wait()
 	s.flushSessionCacheLocked()
+	s.FlushAccountStatsNow()
 }
 
 // flushSessionCacheLocked performs the write without waiting on the wait group, so

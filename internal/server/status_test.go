@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -394,5 +395,85 @@ func TestLoadCredentialsPreservesRuntimeStateAndClearsOnRecapture(t *testing.T) 
 	acc1.mu.RUnlock()
 	if gotFails != 0 || gotErr != "" {
 		t.Fatalf("expected recapture to clear fails/error, got fails=%d err=%q", gotFails, gotErr)
+	}
+}
+
+func TestCoolingAccountAutoRefreshesAfterCooldown(t *testing.T) {
+	cfg := config.Load()
+	cfg.HomeDir = "/synthetic"
+	cfg.CoolingAutoRefreshEvery = 60 * time.Second
+	srv := New(cfg)
+
+	bootCalled := false
+	srv.clientFactory = func(a *AccountState) UpstreamClient {
+		return &mockUpstream{
+			bootFn: func(ctx context.Context) error {
+				bootCalled = true
+				return nil
+			},
+			modelsFn: func(ctx context.Context, force bool) (*gemini.AvailableModelsResult, error) {
+				return &gemini.AvailableModelsResult{
+					Status:   200,
+					Models:   []gemini.ModelInfo{testModel},
+					Capacity: 2,
+				}, nil
+			},
+			quotaFn: func(ctx context.Context) []gemini.QuotaBucket {
+				return []gemini.QuotaBucket{
+					{ID: "5h", Label: "5h", Total: 2400, Remaining: 2400},
+				}
+			},
+		}
+	}
+
+	now := time.Now()
+	srv.clock = func() time.Time { return now }
+
+	acct := &AccountState{
+		ID:       "acc1",
+		Email:    "acc1@example.com",
+		Models:   []gemini.ModelInfo{testModel},
+		ModelsAt: now,
+	}
+	srv.SetAccounts([]*AccountState{acct})
+
+	// Mark failure so account is cooling
+	srv.markAccountFailure(acct, "upstream HTTP 503")
+	if st, _ := AccountStatus(acct, now); st != StatusCooling {
+		t.Fatalf("expected status cooling, got %s", st)
+	}
+
+	// 30 seconds later: cooling should not auto-refresh yet
+	now = now.Add(30 * time.Second)
+	srv.RunSchedulerStep(context.Background(), now)
+	srv.autoProbeWG.Wait()
+
+	if bootCalled {
+		t.Fatalf("did not expect auto-refresh at 30 seconds")
+	}
+	if st, _ := AccountStatus(acct, now); st != StatusCooling {
+		t.Fatalf("expected status to still be cooling at 30s, got %s", st)
+	}
+
+	// 65 seconds after failure: cooling period (1m) elapsed, should auto-refresh
+	now = now.Add(35 * time.Second) // total 65s since failure
+	srv.RunSchedulerStep(context.Background(), now)
+	srv.autoProbeWG.Wait()
+
+	if !bootCalled {
+		t.Fatalf("expected auto-refresh probe to run after 1 minute of cooling")
+	}
+
+	acct.mu.RLock()
+	fails := acct.Fails
+	lastErr := acct.LastError
+	lastFail := acct.LastFail
+	acct.mu.RUnlock()
+
+	if fails != 0 || lastErr != "" || !lastFail.IsZero() {
+		t.Fatalf("expected failures to be reset, got fails=%d err=%q lastFail=%v", fails, lastErr, lastFail)
+	}
+	if st, _ := AccountStatus(acct, now); st != StatusOK {
+		t.Fatalf("expected status ok after auto-refresh, got %s", st)
 	}
 }

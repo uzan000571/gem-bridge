@@ -30,6 +30,7 @@ scratch/
 # Local environment and persistent data
 .env
 data/
+remote_backup/
 .user.ini
 .htaccess
 404.html

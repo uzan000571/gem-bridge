@@ -485,6 +485,19 @@ func (p *Pool) Status() []SessionStatus {
 	return out
 }
 
+// Evict removes and retires the session for key so subsequent requests acquire a fresh connection.
+func (p *Pool) Evict(key string) {
+	p.mu.Lock()
+	s, ok := p.sessions[key]
+	if ok {
+		delete(p.sessions, key)
+	}
+	p.mu.Unlock()
+	if ok && s != nil {
+		go s.Retire()
+	}
+}
+
 // Reset invalidates the current generation and closes all sessions.
 func (p *Pool) Reset() {
 	p.mu.Lock()

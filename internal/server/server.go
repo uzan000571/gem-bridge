@@ -66,6 +66,8 @@ type AccountState struct {
 	activeStreams    int
 	peakRPM          int
 	totalRequests    int
+	todayRequests    int
+	statsDate        string
 	offloadRequests  int
 	subStrikes       map[string]int
 	Client           UpstreamClient
@@ -74,6 +76,7 @@ type AccountState struct {
 	Quota            []gemini.QuotaBucket
 	QuotaAt          time.Time
 	quotaRefreshing  bool
+	probing          bool
 	ModelsAt         time.Time
 	ModelsError      error
 	Fails            int
@@ -126,6 +129,9 @@ type Server struct {
 	cacheFlushMu      sync.Mutex
 	cacheFlushPending atomic.Bool
 	cacheFlushWG      sync.WaitGroup
+	statsMu           sync.Mutex
+	statsFlushPending atomic.Bool
+	statsFlushWG      sync.WaitGroup
 	clientFactory     func(a *AccountState) UpstreamClient
 
 	// rotateMu guards the sticky rotation cursor used by the "rotate" strategy.
@@ -138,6 +144,9 @@ type Server struct {
 	mediaMu    sync.RWMutex
 	mediaItems map[string]*mediaEntry
 	mediaOrder []string
+
+	autoProbeSem chan struct{}
+	autoProbeWG  sync.WaitGroup
 }
 
 // New constructs a new Server from cfg.
@@ -194,6 +203,7 @@ func New(cfg config.Config) *Server {
 		uploadCache:    make(map[string]cachedUpload),
 		startedAt:      time.Now().UTC(),
 		clock:          time.Now,
+		autoProbeSem:   make(chan struct{}, 3),
 	}
 	s.loadSessionCacheFromDisk()
 	return s
@@ -653,6 +663,19 @@ func (s *Server) accountStatusMap(a *AccountState, now time.Time) map[string]any
 		surfCopy[k] = v
 	}
 	status, statusReason := AccountStatus(a, now)
+	todayStr := now.Format("2006-01-02")
+	todayReqs := a.todayRequests
+	if a.statsDate != todayStr {
+		todayReqs = 0
+	}
+	totalReqs := a.totalRequests
+	if status == StatusExpired {
+		todayReqs = 0
+		totalReqs = 0
+		if a.totalRequests > 0 || a.todayRequests > 0 {
+			go s.resetAccountStatsIfExpired(a)
+		}
+	}
 	quotaCopy := append([]gemini.QuotaBucket(nil), a.Quota...)
 	var lastFailStr string
 	if !a.LastFail.IsZero() {
@@ -686,7 +709,8 @@ func (s *Server) accountStatusMap(a *AccountState, now time.Time) map[string]any
 		"activeStreams":    a.activeStreams,
 		"recentRpm":        recentRPM,
 		"peakRpm":          a.peakRPM,
-		"totalRequests":    a.totalRequests,
+		"totalRequests":    totalReqs,
+		"todayRequests":    todayReqs,
 		"offloadRequests":  a.offloadRequests,
 		"surfaces":         surfCopy,
 	}
@@ -999,6 +1023,62 @@ func (s *Server) RunSchedulerStep(ctx context.Context, now time.Time) {
 			a.mu.Lock()
 			a.NextModelRefAt = now.Add(refEvery + randDuration(refEvery/5))
 			a.mu.Unlock()
+		}
+
+		// Auto-heal accounts that have been cooling down for at least CoolingAutoRefreshEvery (default 1m).
+		if s.Cfg.CoolingAutoRefreshEvery > 0 {
+			a.mu.RLock()
+			lastFail := a.LastFail
+			probing := a.probing
+			disabled := a.Disabled
+			a.mu.RUnlock()
+
+			if !disabled && !probing && !lastFail.IsZero() && now.Sub(lastFail) >= s.Cfg.CoolingAutoRefreshEvery {
+				a.mu.Lock()
+				if a.probing {
+					a.mu.Unlock()
+					continue
+				}
+				a.probing = true
+				a.mu.Unlock()
+
+				acquired := false
+				if s.autoProbeSem != nil {
+					select {
+					case s.autoProbeSem <- struct{}{}:
+						acquired = true
+					default:
+					}
+				} else {
+					acquired = true
+				}
+
+				if !acquired {
+					a.mu.Lock()
+					a.probing = false
+					a.mu.Unlock()
+				} else {
+					s.autoProbeWG.Add(1)
+					go func(acct *AccountState) {
+						defer func() {
+							acct.mu.Lock()
+							acct.probing = false
+							acct.mu.Unlock()
+							if s.autoProbeSem != nil {
+								<-s.autoProbeSem
+							}
+							s.autoProbeWG.Done()
+						}()
+						pCtx, pCancel := context.WithTimeout(ctx, 45*time.Second)
+						defer pCancel()
+						if err := s.probeSingleAccountCore(pCtx, acct); err != nil {
+							log.Printf("[auto-heal] account %s auto-refresh failed: %v", acct.ID, err)
+						} else {
+							log.Printf("[auto-heal] account %s auto-refreshed quota & session (recovered from cooling)", acct.ID)
+						}
+					}(a)
+				}
+			}
 		}
 	}
 }

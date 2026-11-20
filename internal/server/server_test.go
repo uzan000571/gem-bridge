@@ -2450,3 +2450,53 @@ func TestStreamedPreambleWithLeadingWhitespaceDoesNotTriggerFalseUpstreamRevisio
 		t.Fatalf("expected tool_calls completion, got:\n%s", rec.Body.String())
 	}
 }
+
+func TestFreeAccountIncludedInRotation(t *testing.T) {
+	cfg := config.Load()
+	cfg.HomeDir = "/synthetic"
+	cfg.AccountTokens = nil
+	cfg.SessionCache = false
+	cfg.AccountStrategy = "rotate"
+	srv := New(cfg)
+
+	proModel := gemini.ModelInfo{ModelID: "flash", ModelName: "gemini-flash", DisplayName: "Flash"}
+	freeModel := gemini.ModelInfo{ModelID: "auto", ModelName: "gemini-auto", DisplayName: "Auto"}
+
+	proAcct := &AccountState{
+		ID:       "proAcct",
+		Email:    "pro@example.com",
+		Capacity: 2,
+		Models:   []gemini.ModelInfo{proModel},
+		ModelsAt: time.Now(),
+	}
+	freeAcct := &AccountState{
+		ID:       "freeAcct",
+		Email:    "free@example.com",
+		Capacity: 1,
+		Models:   []gemini.ModelInfo{freeModel},
+		ModelsAt: time.Now(),
+	}
+
+	srv.SetAccounts([]*AccountState{proAcct, freeAcct})
+
+	// When proAcct is ready, it serves gemini-flash.
+	m := resolveModelOnAccount(freeAcct, "gemini-flash")
+	if m == nil || m.ModelName != "gemini-auto" {
+		t.Fatalf("expected freeAcct to resolve gemini-flash to gemini-auto, got %+v", m)
+	}
+
+	// First request lands on proAcct.
+	got := srv.resolveChatAccount(srv.Accounts(), AuthScope{OK: true, Admin: true}, "gemini-flash", nil)
+	if got == nil || got.ID != "proAcct" {
+		t.Fatalf("expected proAcct first, got %+v", got)
+	}
+
+	// When proAcct fails or cools down, rotation advances to freeAcct.
+	cand, candModel := srv.pickFallbackAccount(srv.Accounts(), map[string]bool{"proAcct": true}, "", "gemini-flash", nil)
+	if cand == nil || cand.ID != "freeAcct" {
+		t.Fatalf("expected fallback to pick freeAcct, got %+v", cand)
+	}
+	if candModel == nil || candModel.ModelName != "gemini-auto" {
+		t.Fatalf("expected freeAcct model to be gemini-auto, got %+v", candModel)
+	}
+}

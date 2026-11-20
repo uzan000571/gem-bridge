@@ -261,6 +261,25 @@ func pollIsolatedCDPCookies(ctx context.Context, port int) (cookieHeader, userAg
 		return "", "", false
 	}
 
+	// Verify that the Gemini app page has loaded and injected the session token SNlM0e.
+	evalPayload := `{"id":2,"method":"Runtime.evaluate","params":{"expression":"Boolean((typeof WIZ_global_data !== 'undefined' && WIZ_global_data && WIZ_global_data.SNlM0e) || (document.documentElement && document.documentElement.innerHTML && document.documentElement.innerHTML.indexOf('\"SNlM0e\":') !== -1))","returnByValue":true}}`
+	evalJSON, err := cdpCallStdlibWS(cctx, wsURL, evalPayload)
+	if err != nil {
+		return "", "", false
+	}
+	var evalReply struct {
+		ID     int `json:"id"`
+		Result struct {
+			Result struct {
+				Type  string `json:"type"`
+				Value bool   `json:"value"`
+			} `json:"result"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(evalJSON, &evalReply); err != nil || !evalReply.Result.Result.Value {
+		return "", "", false
+	}
+
 	rawJSON, err := cdpCallStdlibWS(cctx, wsURL, `{"id":1,"method":"Network.getAllCookies"}`)
 	if err != nil {
 		return "", "", false
@@ -280,26 +299,44 @@ func pollIsolatedCDPCookies(ctx context.Context, port int) (cookieHeader, userAg
 		return "", "", false
 	}
 
-	seen := make(map[string]string)
-	var parts []string
+	var cookieList []struct {
+		Name   string `json:"name"`
+		Value  string `json:"value"`
+		Domain string `json:"domain"`
+	}
+	seen := make(map[string]bool)
 	for _, c := range reply.Result.Cookies {
 		if !strings.HasSuffix(c.Domain, "google.com") || c.Name == "" || c.Value == "" {
 			continue
 		}
-		if _, exists := seen[c.Name]; !exists {
-			seen[c.Name] = c.Value
-			parts = append(parts, c.Name+"="+c.Value)
-		}
+		cookieList = append(cookieList, struct {
+			Name   string `json:"name"`
+			Value  string `json:"value"`
+			Domain string `json:"domain"`
+		}{
+			Name:   c.Name,
+			Value:  c.Value,
+			Domain: c.Domain,
+		})
+		seen[c.Name] = true
 	}
 
-	if seen["SAPISID"] == "" && seen["__Secure-3PAPISID"] == "" {
+	if !seen["SAPISID"] && !seen["__Secure-3PAPISID"] {
 		return "", "", false
 	}
-	if seen["__Secure-1PSID"] == "" || seen["__Secure-1PSIDTS"] == "" {
+	if !seen["__Secure-1PSID"] || !seen["__Secure-1PSIDTS"] {
+		return "", "", false
+	}
+	if !seen["OSID"] && !seen["__Secure-OSID"] {
 		return "", "", false
 	}
 
-	return strings.Join(parts, "; "), verInfo.UserAgent, true
+	hdr := selectBestDomainCookies(cookieList)
+	if hdr == "" {
+		return "", "", false
+	}
+
+	return hdr, verInfo.UserAgent, true
 }
 
 func cdpCallStdlibWS(ctx context.Context, wsURL string, payload string) ([]byte, error) {

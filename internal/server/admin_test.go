@@ -310,6 +310,7 @@ func TestStreamingPoolRotatesOnSubstitutionAfterHeadersAndMediaRound(t *testing.
 	cfg.MaxAttempts = 3
 	cfg.MaxUpstreamAttempts = 3
 	srv := New(cfg)
+	t.Cleanup(func() { srv.FlushSessionCacheNow() })
 
 	acct1Calls := 0
 	c1 := &mockUpstream{

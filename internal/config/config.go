@@ -40,6 +40,7 @@ type Config struct {
 	MaxOldToolChars         int
 	RotateCookiesEvery      time.Duration
 	ModelRefreshEvery       time.Duration
+	CoolingAutoRefreshEvery time.Duration
 	StreamTimeout           time.Duration
 	FirstByteTimeout        time.Duration
 	StallTimeout            time.Duration
@@ -270,6 +271,26 @@ func FromEnv() *Config {
 		warnings = append(warnings, fmt.Sprintf("invalid BRIDGE_QUIET_HOURS=%q; expected HH:MM-HH:MM", quietHours))
 	}
 
+	lookupCoolingRefresh := func() time.Duration {
+		v := lookup("BRIDGE_COOLING_AUTO_REFRESH_MS")
+		if v == "" {
+			return 60 * time.Second
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			warnings = append(warnings, fmt.Sprintf("invalid BRIDGE_COOLING_AUTO_REFRESH_MS=%q; falling back to 60000", v))
+			return 60 * time.Second
+		}
+		if n == 0 {
+			return 0
+		}
+		if n < 5000 {
+			warnings = append(warnings, fmt.Sprintf("BRIDGE_COOLING_AUTO_REFRESH_MS=%d below minimum 5000; clamping to 5000", n))
+			return 5 * time.Second
+		}
+		return time.Duration(n) * time.Millisecond
+	}
+
 	hostVal := lookup("BRIDGE_HOST")
 	if hostVal == "" {
 		hostVal = lookupStr("HOST", "127.0.0.1")
@@ -301,6 +322,7 @@ func FromEnv() *Config {
 		MaxOldToolChars:         lookupPositiveInt("BRIDGE_MAX_OLD_TOOL_CHARS", 32000, 256),
 		RotateCookiesEvery:      time.Duration(lookupPositiveInt("BRIDGE_ROTATE_COOKIES_MS", 540000, 1000)) * time.Millisecond,
 		ModelRefreshEvery:       time.Duration(lookupPositiveInt("BRIDGE_MODEL_REFRESH_MS", 1800000, 1000)) * time.Millisecond,
+		CoolingAutoRefreshEvery: lookupCoolingRefresh(),
 		StreamTimeout:           time.Duration(lookupPositiveInt("BRIDGE_STREAM_TIMEOUT_MS", 600000, 1000)) * time.Millisecond,
 		FirstByteTimeout:        time.Duration(lookupPositiveInt("BRIDGE_FIRST_BYTE_TIMEOUT_MS", 60000, 1000)) * time.Millisecond,
 		StallTimeout:            time.Duration(lookupPositiveInt("BRIDGE_STALL_TIMEOUT_MS", 90000, 1000)) * time.Millisecond,

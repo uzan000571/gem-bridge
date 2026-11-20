@@ -716,7 +716,29 @@ func (s *Server) handleAdminImportAccount(ctx context.Context, w http.ResponseWr
 }
 
 func (s *Server) probeSingleAccount(ctx context.Context, a *AccountState) error {
+	a.mu.Lock()
+	if a.probing {
+		a.mu.Unlock()
+		return fmt.Errorf("probe already in progress for account %s", a.ID)
+	}
+	a.probing = true
+	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		a.probing = false
+		a.mu.Unlock()
+	}()
+
+	return s.probeSingleAccountCore(ctx, a)
+}
+
+func (s *Server) probeSingleAccountCore(ctx context.Context, a *AccountState) error {
+	if s.Pool != nil {
+		s.Pool.Evict(a.ID)
+	}
+
 	c := s.clientFor(a)
+	c.InvalidateAuth()
 	if err := c.Bootstrap(ctx); err != nil {
 		a.mu.Lock()
 		a.ModelsError = err

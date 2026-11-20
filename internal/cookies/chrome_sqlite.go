@@ -855,7 +855,13 @@ func stripDomainPrefix(buf []byte, host string) ([]byte, bool) {
 }
 
 func bestHeaderFromRows(rows []CookieRow) string {
-	score := func(h string) int {
+	score := func(h, name string) int {
+		if name == "OSID" || name == "__Secure-OSID" {
+			if h == "gemini.google.com" || h == ".gemini.google.com" {
+				return 4
+			}
+			return 0
+		}
 		if h == ".google.com" || h == "google.com" {
 			return 3
 		}
@@ -871,7 +877,10 @@ func bestHeaderFromRows(rows []CookieRow) string {
 		if !essentialSet[r.Name] || r.Value == "" {
 			continue
 		}
-		s := score(r.Host)
+		s := score(r.Host, r.Name)
+		if s <= 0 {
+			continue
+		}
 		if s > bestScore[r.Name] || (s == bestScore[r.Name] && r.ExpiresAt > bestExpiry[r.Name]) {
 			best[r.Name] = r.Value
 			bestScore[r.Name] = s

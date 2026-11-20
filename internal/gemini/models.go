@@ -387,6 +387,9 @@ func MatchesModel(m ModelInfo, wanted string) bool {
 // IsMatchingServedModel checks whether the upstream frame's answeredModelId /
 // answeredModelLabel matches the requested ModelInfo (preventing silent downgrades).
 func IsMatchingServedModel(m ModelInfo, servedID, servedLabel string) bool {
+	if m.ModelID == "auto" || m.ModelName == "gemini-auto" || strings.EqualFold(servedID, "auto") || strings.EqualFold(servedLabel, "auto") {
+		return true
+	}
 	if servedID != "" && m.ModelID != "" {
 		if strings.EqualFold(servedID, m.ModelID) {
 			return true

@@ -15,11 +15,13 @@ import (
 
 // EssentialNames lists the Google session cookies required by gemini.google.com
 // in canonical wire order. Note: AEC is optional and may be absent in modern browser profiles.
+// OSID and __Secure-OSID are required by gemini.google.com.
 var EssentialNames = []string{
 	"SID", "HSID", "SSID", "APISID", "SAPISID",
 	"__Secure-1PSID", "__Secure-1PAPISID", "__Secure-3PSID", "__Secure-3PAPISID",
 	"__Secure-1PSIDTS", "__Secure-3PSIDTS",
 	"SIDCC", "__Secure-1PSIDCC", "__Secure-3PSIDCC", "NID", "AEC",
+	"OSID", "__Secure-OSID",
 }
 
 var essentialSet = func() map[string]bool {
@@ -246,7 +248,13 @@ func selectBestDomainCookies(list []struct {
 	Value  string `json:"value"`
 	Domain string `json:"domain"`
 }) string {
-	score := func(d string) int {
+	score := func(d, name string) int {
+		if name == "OSID" || name == "__Secure-OSID" {
+			if d == "gemini.google.com" || d == ".gemini.google.com" {
+				return 4
+			}
+			return 0
+		}
 		if d == ".google.com" || d == "google.com" {
 			return 3
 		}
@@ -261,7 +269,10 @@ func selectBestDomainCookies(list []struct {
 		if !essentialSet[c.Name] || c.Value == "" {
 			continue
 		}
-		s := score(c.Domain)
+		s := score(c.Domain, c.Name)
+		if s <= 0 {
+			continue
+		}
 		if s > bestScore[c.Name] {
 			best[c.Name] = c.Value
 			bestScore[c.Name] = s

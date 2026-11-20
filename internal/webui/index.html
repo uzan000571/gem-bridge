@@ -633,10 +633,44 @@
       line-height: 1.35;
     }
 
-    /* Column 3: Quota Meter (Proportional Non-Scrolling Layout) */
+    /* Column: Hits */
+    .acct-table td.col-hits,
+    .acct-table th.col-hits {
+      width: 140px;
+      white-space: nowrap;
+    }
+
+    .hits-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .hits-today {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .hits-today .hits-num.text-accent {
+      color: var(--status-ok-fg);
+    }
+
+    .hits-total {
+      font-size: 0.6875rem;
+      color: var(--text-secondary);
+    }
+
+    .hits-lbl {
+      font-size: 0.6875rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    /* Column: Quota Meter (Proportional Non-Scrolling Layout) */
     .acct-table td.col-quota,
     .acct-table th.col-quota {
-      width: 48%;
+      width: 40%;
     }
 
     .quota-stack {
@@ -1601,6 +1635,7 @@
               <tr>
                 <th scope="col" class="th-sortable" data-sort="id" title="Click to sort by Account ID">Account <span class="sort-indicator" id="sort-ind-id">↕</span></th>
                 <th scope="col" class="th-sortable" data-sort="status" title="Click to sort by Status">Status <span class="sort-indicator" id="sort-ind-status">↕</span></th>
+                <th scope="col" class="th-sortable col-hits" data-sort="hits" title="Click to sort by Today's Hits">Hits (Today / Total) <span class="sort-indicator" id="sort-ind-hits">↕</span></th>
                 <th scope="col" class="col-quota th-sortable" data-sort="quota" title="Click to sort by 5h Quota Remaining">Active Quota Window (5h / Weekly) <span class="sort-indicator" id="sort-ind-quota">↕</span></th>
                 <th scope="col" class="col-actions">Actions</th>
               </tr>
@@ -2067,9 +2102,15 @@
           data = await res.json();
         } catch (_) {}
         if (res.status === 401) {
-          const msg = (data.error && data.error.message) || 'Authentication required for this daemon.';
-          openAuthModal(msg);
-          throw new Error(msg);
+          const isImportOrAcctOp = path.includes('/accounts/');
+          const isDaemonAuth = data.error && (data.error.code === 'admin_auth_required' || data.error.code === 'remote_web_ui_locked');
+          if (isDaemonAuth || (!isImportOrAcctOp && (!data.error || (data.error.type === 'authentication_error' && data.error.code !== 'upstream_auth_error')))) {
+            const msg = (data.error && data.error.message) || 'Authentication required for this daemon.';
+            openAuthModal(msg);
+            throw new Error(msg);
+          }
+          const errMsg = (data.error && data.error.message) || ('HTTP ' + res.status);
+          throw new Error(errMsg);
         }
         if (!res.ok) {
           const errMsg = (data.error && data.error.message) || ('HTTP ' + res.status);
@@ -2282,6 +2323,11 @@
             cmp = String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true, sensitivity: 'base' });
           } else if (currentSortCol === 'status') {
             cmp = String(a.status || '').localeCompare(String(b.status || ''));
+          } else if (currentSortCol === 'hits') {
+            cmp = (a.todayRequests || 0) - (b.todayRequests || 0);
+            if (cmp === 0) {
+              cmp = (a.totalRequests || 0) - (b.totalRequests || 0);
+            }
           } else if (currentSortCol === 'quota') {
             cmp = get5hQuotaRemaining(a) - get5hQuotaRemaining(b);
           }
@@ -2415,6 +2461,8 @@
           'Email',
           'Status',
           'Status Reason',
+          'Hits Today',
+          'Hits Total',
           'Fails',
           '5h Remaining',
           '5h Total',
@@ -2440,6 +2488,8 @@
             escapeCSV(a.email || ''),
             escapeCSV(a.status || ''),
             escapeCSV(a.statusReason || ''),
+            escapeCSV(a.todayRequests || 0),
+            escapeCSV(a.totalRequests || 0),
             escapeCSV(a.fails != null ? a.fails : 0),
             escapeCSV(pair.q5h ? pair.q5h.remaining : ''),
             escapeCSV(pair.q5h ? pair.q5h.total : ''),
@@ -2650,7 +2700,29 @@
           tdStatus.appendChild(stWrap);
           tr.appendChild(tdStatus);
 
-          // 3. Active Quota Window (5h / Weekly)
+          // 3. Hits (Today / Total)
+          const tdHits = document.createElement('td');
+          tdHits.className = 'col-hits';
+          tdHits.setAttribute('data-label', 'Hits');
+          const hitsWrap = document.createElement('div');
+          hitsWrap.className = 'hits-cell mono';
+
+          const hitsToday = document.createElement('div');
+          hitsToday.className = 'hits-today';
+          const tReq = acct.todayRequests || 0;
+          hitsToday.innerHTML = '<span class="hits-num' + (tReq > 0 ? ' text-accent' : '') + '">' + tReq.toLocaleString() + '</span> <span class="hits-lbl">today</span>';
+          hitsWrap.appendChild(hitsToday);
+
+          const hitsTotal = document.createElement('div');
+          hitsTotal.className = 'hits-total';
+          const totReq = acct.totalRequests || 0;
+          hitsTotal.innerHTML = '<span class="hits-num">' + totReq.toLocaleString() + '</span> <span class="hits-lbl">total</span>';
+          hitsWrap.appendChild(hitsTotal);
+
+          tdHits.appendChild(hitsWrap);
+          tr.appendChild(tdHits);
+
+          // 4. Active Quota Window (5h / Weekly)
           const tdQuota = document.createElement('td');
           tdQuota.className = 'col-quota';
           tdQuota.setAttribute('data-label', 'Active Quota Window');
